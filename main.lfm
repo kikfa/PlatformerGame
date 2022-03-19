@@ -1,0 +1,71 @@
+object Form1: TForm1
+  Left = 268
+  Height = 373
+  Top = 112
+  Width = 677
+  Caption = 'PlatformerGame'
+  ClientHeight = 373
+  ClientWidth = 677
+  OnCreate = FormCreate
+  OnKeyDown = FormKeyDown
+  OnKeyPress = FormKeyPress
+  OnResize = FormResize
+  LCLVersion = '2.2.0.4'
+  object menuBG: TImage
+    Left = 0
+    Height = 373
+    Top = 0
+    Width = 1060
+    Stretch = True
+  end
+  object gameBG1: TImage
+    Left = 0
+    Height = 373
+    Top = 0
+    Width = 706
+    Stretch = True
+    Visible = False
+  end
+  object gameBG2: TImage
+    Left = 1064
+    Height = 373
+    Top = -88
+    Width = 706
+    Stretch = True
+    Visible = False
+  end
+  object startBtn: TButton
+    Left = 136
+    Height = 39
+    Top = 32
+    Width = 418
+    Caption = 'Начать игру'
+    OnClick = startBtnClick
+    TabOrder = 0
+  end
+  object groundImg1: TImage
+    Left = 0
+    Height = 85
+    Top = 288
+    Width = 706
+    Stretch = True
+    Visible = False
+  end
+  object groundImg2: TImage
+    Left = 712
+    Height = 85
+    Top = 288
+    Width = 706
+    Stretch = True
+    Visible = False
+  end
+  object personImg: TImage
+    Left = 240
+    Height = 108
+    Top = 180
+    Width = 94
+    AntialiasingMode = amOn
+    Stretch = True
+    Visible = False
+  end
+end
