@@ -20,18 +20,20 @@ type
     personImg: TImage;
     menuBG: TImage;
     startBtn: TButton;
+    phTimer: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormKeyPress(Sender: TObject; var Key: char);
     procedure FormResize(Sender: TObject);
     procedure startBtnClick(Sender: TObject);
+    procedure phTimerTimer(Sender: TObject);
   private
   public
   end;
 
   // Класс персонажа
   THuman = class
-    v_X, v_Y : Integer;                      // Скорость персонажа
+    v_X, v_Y : Single;                      // Скорость персонажа
     global_X, global_Y : Integer;            // Глобальные координаты персонажа
 
   end;
@@ -41,13 +43,9 @@ type
     procedure Execute; override;
   end;
 
-  // Класс потока для панарамы меню
-  TPhysicsEngine = class(TThread)
-    procedure Execute; override;
-  end;
-
 const
-  KeyKick = 10;        // Скорость, которую дает нажатие на клавишу
+  KeyKick = 1.2;           // Скорость, которую дает нажатие на клавишу
+  MaxHumanRun = 5.6;     // Максимальная скорость бега
 
 var
   Form1: TForm1;                   // Главная форма
@@ -57,7 +55,6 @@ var
   isMenuState : Boolean = False;   // Открыто ли меню игры
   isGameState : Boolean = False;   // Запущена ли игра
   Human : THuman;                  // Объект класса персонажа
-  PhysicsEngine : TPhysicsEngine;  // Объект класса физического движка
   Sprite_L, Sprite_R : Integer;    // Левая и правая границы перемещения игрока
 
 implementation
@@ -321,6 +318,7 @@ begin
      // Перерисовка изображения панорамы в меню
      Form1.menuBG.Height := Form1.Height;
      Form1.menuBG.Width := Form1.menuBG.Height * 3;
+     Form1.menuBG.Repaint;
 
      // Перерисовка фонового изображения в игре
      Form1.gameBG1.Height := Form1.Height;
@@ -466,7 +464,7 @@ begin
      isGameState := True;
 
      // Запускаем поток обработки физики
-     PhysicsEngine := TPhysicsEngine.Create(False);
+     Form1.phTimer.Enabled:=True;
 
 
 end;
@@ -547,6 +545,53 @@ begin
 
 end;
 
+// Физический движок
+// Работаем с таймером, чтобы иметь привязку по времени
+procedure TForm1.phTimerTimer(Sender: TObject);
+var
+   local_X, local_Y : Integer;   // Локальные координаты персонажа
+begin
+     if (Human.v_X <> 0.0) then
+     begin
+          local_X := Form1.personImg.Left + Round(Human.v_X * 1000 / Form1.phTimer.Interval);
+          Human.global_X:=Human.global_X + Round(Human.v_X * 1000 / Form1.phTimer.Interval);
+          // Отрисовка
+          if (local_X > Sprite_R) then
+          begin
+               MoveCamera(local_X - Sprite_R);
+               Form1.personImg.Left := Sprite_R;
+          end
+          else if (local_X < Sprite_L - Form1.personImg.Width) then
+          begin
+               MoveCamera(local_X - Sprite_L + Form1.personImg.Width);
+               Form1.personImg.Left := Sprite_L - Form1.personImg.Width;
+          end else
+               Form1.personImg.Left := local_X;
+
+          // Естественное торможение
+          if (Human.v_X > 0.0) then
+          begin
+               Human.v_X := Human.v_X - (KeyKick * 0.75);
+               if (Human.v_X < 0) then
+                  Human.v_X := 0.0; // Финальная остановка
+               end
+               else
+               begin
+                  Human.v_X := Human.v_X + (KeyKick * 0.75);
+                  if (Human.v_X > 0) then
+                     Human.v_X := 0.0; // Финальная остановка
+               end;
+          end;
+
+          if (Human.v_Y <> 0) then
+          begin
+               // Надо подумать )))
+               // Для рассчета скорости использовать Vтекущая - g*acceleration
+               // Рассчитывать ускорение тоже ненужно
+               // Задача на подумать и написать, в этом коды решения нет
+          end;
+end;
+
 //
 //
 //   РАБОТА С СОБЫТИЯМИ
@@ -560,12 +605,20 @@ begin
      // ВАЖНО!!! Т.к. можно нажать одновременно вправо и влево - лучше отказаться от else
      if (Key = VK_RIGHT) then
      begin
-      Human.v_X:= Human.v_X + KeyKick;
+        // Ограничитель скорости
+        if (MaxHumanRun >= Human.v_X + KeyKick) then
+           Human.v_X := Human.v_X + KeyKick
+        else
+            Human.v_X := MaxHumanRun;
      end;
 
      if (Key = VK_LEFT) then
      begin
-      Human.v_X:= Human.v_X - KeyKick;
+          // Ограничитель скорости
+          if (MaxHumanRun >= (-1)*(Human.v_X - KeyKick)) then
+             Human.v_X := Human.v_X - KeyKick
+          else
+             Human.v_X := (-1)*MaxHumanRun;
      end;
 
 end;
@@ -576,8 +629,8 @@ begin
      // Прыжок
      if (Key = ' ') then
      begin
-      if (Human.v_Y = 0)  // Запрет на прыжок в воздухе
-         Human.v_Y:= KeyKick;
+      if (Human.v_Y = 0) then // Запрет на прыжок в воздухе
+         Human.v_Y := KeyKick;
      end;
 end;
 
@@ -606,60 +659,6 @@ begin
             Sleep(100)
          else
              Sleep(3000);
-     end;
-end;
-
-// Поток работы с физикой
-procedure TPhysicsEngine.Execute;
-var
-   local_X, local_Y : Integer;   // Локальные координаты персонажа
-   acceleration : Integer = 1;   // Ускорение событий урезанием фреймрейта
-begin
-
-     // ВНИМАНИЕ!!! Т.к. в Lazarus KeyDown событие выполняется циклично - можно отказаться от ускорение по оX для повышения производительности
-
-     while (isGameState) do
-     begin
-          // Преобразование скорости в перемещение
-          if (Human.v_X <> 0) then
-          begin
-               local_X := Form1.personImg.Left + Human.v_X * acceleration;
-               Human.global_X:=Human.global_X + Human.v_X * acceleration;
-               // Отрисовка
-               if (local_X > Sprite_R) then
-               begin
-                    MoveCamera(local_X - Sprite_R);
-                    Form1.personImg.Left := Sprite_R;
-               end
-               else if (local_X < Sprite_L - Form1.personImg.Width) then
-               begin
-                    MoveCamera(local_X - Sprite_L + Form1.personImg.Width);
-                    Form1.personImg.Left := Sprite_L - Form1.personImg.Width;
-               end else
-                   Form1.personImg.Left := local_X;
-
-               // Естественное торможение
-               if (Human.v_X > 0) then
-               begin
-                  Human.v_X := Human.v_X - Round(KeyKick * 0.25);
-                  if (Human.v_X < 0) then
-                     Human.v_X := 0; // Финальная остановка
-               end
-               else
-               begin
-                  Human.v_X := Human.v_X + Round(KeyKick * 0.25);
-                  if (Human.v_X > 0) then
-                     Human.v_X := 0; // Финальная остановка
-               end;
-          end;
-
-          if (Human.v_Y <> 0) then
-          begin
-               // Надо подумать )))
-               // Для рассчета скорости использовать Vтекущая - g*acceleration
-               // Рассчитывать ускорение тоже ненужно
-               // Задача на подумать и написать, в этом коды решения нет
-          end;
      end;
 end;
 
