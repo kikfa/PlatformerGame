@@ -2,10 +2,20 @@ unit Main;
 
 {$mode objfpc}{$H+}
 
+{$IFDEF DARWIN}
+   {$modeswitch objectivec1}
+{$ENDIF}
+
 interface
 
 uses
+
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Zipper, LCLType,
+
+  {$IFDEF DARWIN}
+  CocoaAll, CocoaUtils,
+  {$ENDIF}
+
   StdCtrls, ExtCtrls, uos_flat;
 
 type
@@ -40,12 +50,16 @@ type
 
   // Класс потока для панарамы меню
   TPamoramImage = class(TThread)
+  private
+    ImageNewPos : Integer;
+  protected
     procedure Execute; override;
+    procedure MoveBG;
   end;
 
 const
-  KeyKick = 1.2;           // Скорость, которую дает нажатие на клавишу
-  MaxHumanRun = 5.6;     // Максимальная скорость бега
+  KeyKick = 0.3;       // Скорость, которую дает нажатие на клавишу
+  MaxHumanRun = 4;     // Максимальная скорость бега
 
 var
   Form1: TForm1;                   // Главная форма
@@ -56,6 +70,7 @@ var
   isGameState : Boolean = False;   // Запущена ли игра
   Human : THuman;                  // Объект класса персонажа
   Sprite_L, Sprite_R : Integer;    // Левая и правая границы перемещения игрока
+  PanoramInUse: Boolean = False;   // Работает ли панорама
 
 implementation
 
@@ -98,21 +113,33 @@ var
   Path : String;
 begin
   Path := GetTempDir();
+
+  // В маке директория с временными файлами запрашивается через... ухо
+  {$IFDEF DARWIN}
+    Path := NSStringToString(NSBundle.mainBundle.resourcePath) + PathDelim;
+  {$ENDIF}
+
   Path := Path + 'Platformer';
 
   DeleteDirectory(Path);
+
   if (CreateDir(Path)) then
-     TMPDir := Path
+     TMPDir := Path + DirectorySeparator
   else
   begin
      TMPDir := 'Platformer';
-     if not CreateDir(Path) then
+     if not CreateDir(TMPDir) then
      begin
+        {$IFNDEF DARWIN}
         ShowMessage('Can''t create temp folder');
         Application.Terminate;
-     end;
+        {$ENDIF}
+        {$IFDEF DARWIN}
+        TMPDir := Path + DirectorySeparator;
+        {$ENDIF}
+     end else
+         TMPDir := TMPDir + DirectorySeparator;
   end;
-
 end;
 
 // Процедура распаковки библиотек
@@ -121,29 +148,35 @@ var
   S: TResourceStream;
   UnZipper: TUnZipper;
   LibPath : String;
+  AlreadyCreated : Boolean = False; // Уже распаковано
 begin
-
      // Создание директории бибдлиотек
-     LibPath := TMPDir +  DirectorySeparator + 'libs';
+     LibPath := TMPDir + 'libs';
      if not CreateDir(LibPath) then
      begin
+        {$IFNDEF DARWIN}
         ShowMessage('Can''t create lib folder');
         Application.Terminate;
+        {$ENDIF}
+        AlreadyCreated := True;
      end;
 
-     // UOS
-     S := TResourceStream.Create(HInstance, 'UOS', RT_RCDATA);
-     S.SaveToFile(TMPDir +  DirectorySeparator + 'uos.zip');
-     S.Free;
+     // Если файлы не распаковывали
+     if not (AlreadyCreated)  then
+     begin
+       // UOS
+       S := TResourceStream.Create(HInstance, 'UOS', RT_RCDATA);
+       S.SaveToFile(TMPDir + 'uos.zip');
+       S.Free;
 
-    UnZipper := TUnZipper.Create;
-    UnZipper.FileName := TMPDir +  DirectorySeparator + 'uos.zip';
-    UnZipper.OutputPath := LibPath;
-    UnZipper.Examine;
-    UnZipper.UnZipAllFiles;
-    UnZipper.Free;
-    DeleteFile(TMPDir +  DirectorySeparator + 'uos.zip');
-
+      UnZipper := TUnZipper.Create;
+      UnZipper.FileName := TMPDir + 'uos.zip';
+      UnZipper.OutputPath := LibPath;
+      UnZipper.Examine;
+      UnZipper.UnZipAllFiles;
+      UnZipper.Free;
+      DeleteFile(TMPDir + 'uos.zip');
+     end;
 end;
 
 // Процедура распаковки ассетов
@@ -152,27 +185,35 @@ var
   S: TResourceStream;
   UnZipper: TUnZipper;
   AssetsPath : String;
+  AlreadyCreated : Boolean = False; // Уже распаковано
 begin
      // Создание директории ассетов
-     AssetsPath := TMPDir +  DirectorySeparator + 'assets';
+     AssetsPath := TMPDir + 'assets';
      if not CreateDir(AssetsPath) then
      begin
+        {$IFNDEF DARWIN}
         ShowMessage('Can''t create assets folder');
         Application.Terminate;
+        {$ENDIF}
+        AlreadyCreated := True;
      end;
 
-    // Распаковка ассетов
-    S := TResourceStream.Create(HInstance, 'ASSETS', RT_RCDATA);
-    S.SaveToFile(TMPDir +  DirectorySeparator + 'assets.zip');
-    S.Free;
+    // Если файлы не распаковывали
+    if not (AlreadyCreated)  then
+    begin
+      // Распаковка ассетов
+      S := TResourceStream.Create(HInstance, 'ASSETS', RT_RCDATA);
+      S.SaveToFile(TMPDir + 'assets.zip');
+      S.Free;
 
-    UnZipper := TUnZipper.Create;
-    UnZipper.FileName := TMPDir +  DirectorySeparator + 'ASSETS.zip';
-    UnZipper.OutputPath := AssetsPath;
-    UnZipper.Examine;
-    UnZipper.UnZipAllFiles;
-    UnZipper.Free;
-    DeleteFile(TMPDir +  DirectorySeparator + 'ASSETS.zip');
+      UnZipper := TUnZipper.Create;
+      UnZipper.FileName := TMPDir + 'ASSETS.zip';
+      UnZipper.OutputPath := AssetsPath;
+      UnZipper.Examine;
+      UnZipper.UnZipAllFiles;
+      UnZipper.Free;
+      DeleteFile(TMPDir + 'ASSETS.zip');
+    end;
 end;
 
 //
@@ -190,7 +231,7 @@ var
 
 begin
 
-    LibPath := TMPDir +  DirectorySeparator + 'libs';
+    LibPath := TMPDir + 'libs';
 
     // Построение путей
     {$IFDEF Windows}
@@ -249,7 +290,7 @@ begin
         {$ENDIF}
 
         {$IFDEF CPU64}
-          PA := LibPath + DirectorySeparator + 'uos/Mac/64bit/LibPortaudio-64.dylib';
+          PA := LibPath + DirectorySeparator + 'uos/lib/Mac/64bit/LibPortaudio-64.dylib';
           SF := LibPath + DirectorySeparator + 'uos/lib/Mac/64bit/LibSndFile-64.dylib';
           MP := LibPath + DirectorySeparator + 'uos/lib/Mac/64bit/LibMpg123-64.dylib';
         {$ENDIF}
@@ -262,10 +303,9 @@ begin
      else
      begin
        // Если не нашел библиотеки кастомные - пробуем системные
-       Check := uos_LoadLib(PChar('system'), PChar('system'), PChar('system'), nil, nil, nil);
+       Check := uos_LoadLib('system', 'system', nil, nil, nil, nil);
        UOS_Lib_Check := (Check = 0);
      end;
-
 end;
 
 //
@@ -280,7 +320,8 @@ begin
      if UOS_Lib_Check then
      begin
        uos_CreatePlayer(0);
-       uos_AddFromFile(0, PChar(TMPDir +  DirectorySeparator + 'assets' + DirectorySeparator + 'sound' + DirectorySeparator + 'bg_sound.mp3'));
+       uos_AddFromFile(0, PChar(TMPDir + 'assets' + DirectorySeparator + 'sound' + DirectorySeparator + 'bg_sound.ogg'));
+
        {$if defined(cpuarm) or defined(cpuaarch64)}  // need a lower latency
           uos_AddIntoDevOut(0, -1, 0.3, -1, -1, -1, -1, -1);
        {$else}
@@ -411,10 +452,11 @@ end;
 // Запуск панорамы в меню
 procedure StartMenuPanoram();
 begin
-     Form1.menuBG.Picture.LoadFromFile(TMPDir +  DirectorySeparator
+     Form1.menuBG.Picture.LoadFromFile(TMPDir
                                        + 'assets' + DirectorySeparator
                                        + 'textures' + DirectorySeparator
                                        + 'menu_bg.jpg');
+     PanoramInUse := True;
      PamoramImage := TPamoramImage.Create(False);
 end;
 
@@ -495,6 +537,9 @@ begin
 
      // Перевод состояния
      isMenuState := False;
+
+     // Отключаем панораму
+     PanoramInUse := False;
 end;
 
 // Событие при запуске программы
@@ -522,9 +567,6 @@ begin
 
      // Загрузка панорамы меню
      StartMenuPanoram();
-
-
-
 end;
 
 // Событие при изменении размеров формы
@@ -571,13 +613,13 @@ begin
           // Естественное торможение
           if (Human.v_X > 0.0) then
           begin
-               Human.v_X := Human.v_X - (KeyKick * 0.75);
+               Human.v_X := Human.v_X - (KeyKick * 0.25);
                if (Human.v_X < 0) then
                   Human.v_X := 0.0; // Финальная остановка
                end
                else
                begin
-                  Human.v_X := Human.v_X + (KeyKick * 0.75);
+                  Human.v_X := Human.v_X + (KeyKick * 0.25);
                   if (Human.v_X > 0) then
                      Human.v_X := 0.0; // Финальная остановка
                end;
@@ -645,21 +687,26 @@ procedure TPamoramImage.Execute;
 var
   way : Integer = -1; // Задает направление движения панорамы
 begin
-     while (True) do
+     while (PanoramInUse) do
      begin
           if (isMenuState) then
           begin
-            Form1.menuBG.Left := Form1.menuBG.Left + 1 * way;
-            if (((Form1.menuBG.Left + Form1.menuBG.Width) <= Form1.Width) OR (Form1.menuBG.Left >= 0)) then
+            ImageNewPos := Form1.menuBG.Left + 1 * way;
+            // Чтобы не было ошибок - взаимодействие с формой через Synchronize
+            Synchronize(@MoveBG);
+            if (((ImageNewPos + Form1.menuBG.Width) <= Form1.Width) OR (ImageNewPos >= 0)) then
                way := way * (-1); // Меняем направление движения
           end;
 
          // Ждем время для медленного перемещенимя панорамы и снижения нагрузки на процессор
-         if (isMenuState) then
-            Sleep(100)
-         else
-             Sleep(3000);
+         Sleep(100);
      end;
+end;
+
+// Синхронный поток перемещения избражения
+procedure TPamoramImage.MoveBG;
+begin
+     Form1.menuBG.Left := ImageNewPos;
 end;
 
 

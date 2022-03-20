@@ -7,6 +7,7 @@ uses
   {$IFDEF UNIX}
   cthreads,
   cwstring,
+  cmem,
   {$ENDIF}
   {$IFDEF HASAMIGA}
   athreads,
