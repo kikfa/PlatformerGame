@@ -1,7 +1,7 @@
 object Form1: TForm1
-  Left = 341
+  Left = 215
   Height = 373
-  Top = 122
+  Top = 163
   Width = 677
   Caption = 'PlatformerGame'
   ClientHeight = 373
@@ -35,11 +35,12 @@ object Form1: TForm1
     Visible = False
   end
   object startBtn: TButton
-    Left = 136
-    Height = 39
-    Top = 32
-    Width = 418
+    Left = 168
+    Height = 80
+    Top = 0
+    Width = 336
     Caption = 'Начать игру'
+    Color = 8988577
     OnClick = startBtnClick
     TabOrder = 0
   end
@@ -61,11 +62,12 @@ object Form1: TForm1
   end
   object personImg: TImage
     Left = 240
-    Height = 108
-    Top = 180
-    Width = 94
+    Height = 88
+    Top = 200
+    Width = 64
     AntialiasingMode = amOn
     Stretch = True
+    StretchOutEnabled = False
     Visible = False
   end
   object phTimer: TTimer

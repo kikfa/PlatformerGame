@@ -60,7 +60,7 @@ type
 const
   KeyKick = 0.3;       // Скорость, которую дает нажатие на клавишу
   MaxHumanRun = 4;     // Максимальная скорость бега
-
+  g = 10;
 var
   Form1: TForm1;                   // Главная форма
   TMPDir : String;                 // Временная директория
@@ -393,7 +393,7 @@ begin
      // Перерисовка персонажа
      // Считаем землю равной 2м блокам
      Form1.personImg.Height:= Form1.groundImg1.Height;
-     Form1.personImg.Width:= Round(Form1.personImg.Height / 1.7); // Округляем, чтобы точнее сохранить пропорции персонажа
+     Form1.personImg.Width:= Round(Form1.personImg.Height / 1.275); // Округляем, чтобы точнее сохранить пропорции персонажа
      Form1.personImg.Top := Form1.groundImg1.Top - Form1.personImg.Height;
 
      // Установка границ перемещения
@@ -625,13 +625,16 @@ begin
                end;
           end;
 
-          if (Human.v_Y <> 0) then
+          if (Human.v_Y < 0) then
           begin
-               // Надо подумать )))
-               // Для рассчета скорости использовать Vтекущая - g*acceleration
-               // Рассчитывать ускорение тоже ненужно
-               // Задача на подумать и написать, в этом коды решения нет
-          end;
+            //Human.v_Y := Human.v_Y - Round( g * Form1.phTimer.Interval/1000);
+            // local_Y := Form1.personImg.Top - Human.v_Y * Form1.phTimer.Interval ;
+            //Form1.personImg.Top := local_Y;
+            //if (Form1.personImg.Top - Form1.personImg.Height > Form1.groundImg1.Top ) then
+            //  begin
+            //     Form1.personImg.Top - Form1.personImg.Height = Form1.groundImg1.Top;
+            //   end;
+           end;
 end;
 
 //
@@ -666,13 +669,13 @@ begin
 end;
 
 // При нажатии клавишы
-procedure TForm1.FormKeyPress(Sender: TObject; var Key: char);
+procedure TForm1.FormKeyPress(Sender: TObject; var Key: Char );
 begin
      // Прыжок
-     if (Key = ' ') then
+     if (Key = ' ' ) then
      begin
       if (Human.v_Y = 0) then // Запрет на прыжок в воздухе
-         Human.v_Y := KeyKick;
+         Human.v_Y :=  KeyKick;
      end;
 end;
 
